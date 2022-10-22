@@ -1,0 +1,21 @@
+1666342673920	Delete element
+1666346268785	Delete element
+1666346671358	Rename package 'com.yevgeni.demo'
+1666346683052	Rename package 'com.yevgeni.demo.config'
+1666346695768	Rename package 'com.yevgeni.demo.controller'
+1666346715707	Rename package 'com.yevgeni.demo.model'
+1666346726988	Rename package 'com.yevgeni.demo.service'
+1666346810154	Rename package 'com.yevgeni.demo'
+1666353321790	Rename package 'com.yevgeni.api'
+1666353334364	Rename package 'com.yevgeni.api.config'
+1666353346904	Rename package 'com.yevgeni.api.controller'
+1666353365308	Rename package 'com.yevgeni.api.model'
+1666353375332	Rename package 'com.yevgeni.api.service'
+1666353394549	Rename package 'com.yevgeni.api'
+1666354465705	Delete element
+1666354836098	Rename package 'com.yevgeni.restapi'
+1666354846852	Rename package 'com.yevgeni.restapi.config'
+1666354863749	Rename package 'com.yevgeni.restapi.controller'
+1666354877521	Rename package 'com.yevgeni.restapi.model'
+1666354885593	Rename package 'com.yevgeni.restapi.service'
+1666354896868	Rename package 'com.yevgeni.restapi'

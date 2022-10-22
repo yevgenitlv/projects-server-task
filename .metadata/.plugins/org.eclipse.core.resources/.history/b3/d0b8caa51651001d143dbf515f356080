@@ -1,0 +1,21 @@
+package com.yevgeni.demo.model;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import lombok.*;
+import lombok.ToString;
+
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+@Document(value = "projects")
+public class Project {
+
+    @Id
+    private String id;
+    private String name;
+    private boolean status;
+
+}

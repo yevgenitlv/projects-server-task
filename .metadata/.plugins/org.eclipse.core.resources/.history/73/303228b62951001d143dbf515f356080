@@ -1,0 +1,79 @@
+package com.yevgeni.api.service;
+
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.yevgeni.api.model.User;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+
+public class UserService {
+
+	private static final String USER_AGENT_SERVICE_URL = "http://bridge:9010/agent/users";
+	
+    @Autowired
+    private WebClient webClient;
+
+
+    public Mono<User> createUser(User user){
+    	return webClient.post()
+                .uri(USER_AGENT_SERVICE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(BodyInserters.fromValue(user))
+                .retrieve()
+                .bodyToMono(User.class);
+    }
+
+    public Flux<User> getAllUsers(){
+    	return webClient.get()
+                .uri(USER_AGENT_SERVICE_URL)
+                .retrieve()
+                .bodyToFlux(User.class);
+    }
+
+    public Mono<User> findById(String userId){
+    	return webClient.get()
+                .uri(USER_AGENT_SERVICE_URL)
+                .attribute("userId", userId)
+                .retrieve()
+                .bodyToMono(User.class);
+    }
+
+    public Mono<User> updateUser(String userId,  User user){
+    	return webClient.put()
+                .uri(USER_AGENT_SERVICE_URL)
+                .attribute("userId", userId)
+                .body(BodyInserters.fromValue(user))
+                .retrieve()
+                .bodyToMono(User.class);
+    	}
+
+    public Mono<User> deleteUser(String userId){
+    	return webClient.delete()
+                .uri(USER_AGENT_SERVICE_URL)
+                .attribute("userId", userId)
+                .retrieve()
+                .bodyToMono(User.class);
+    }
+
+    public Flux<User> fetchUsers(String name) {
+    	return webClient.get()
+                .uri(USER_AGENT_SERVICE_URL+"/search")
+                .attribute("name", name)
+                .retrieve()
+                .bodyToFlux(User.class);
+    }
+}

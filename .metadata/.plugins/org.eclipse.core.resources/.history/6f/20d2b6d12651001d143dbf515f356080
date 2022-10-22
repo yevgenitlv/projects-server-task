@@ -1,0 +1,8 @@
+com\yevgeni\demo\controller\UserController.class
+com\yevgeni\demo\config\WebclientConfig.class
+com\yevgeni\demo\model\User.class
+com\yevgeni\demo\controller\ProjectController.class
+com\yevgeni\demo\service\ProjectService.class
+com\yevgeni\demo\model\Project.class
+com\yevgeni\demo\ApiApplication.class
+com\yevgeni\demo\service\UserService.class

@@ -1,0 +1,26 @@
+package com.yevgeni.demo;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import com.yevgeni.demo.model.User;
+import com.yevgeni.demo.repository.UserRepository;
+
+import lombok.val;
+import reactor.core.publisher.Mono;
+
+@SpringBootTest
+@DataMongoTest
+public class UserRepositoryTests {
+
+	@Autowired
+    private UserRepository repository;
+	
+	private void createUser(){
+		val user = repository.save(new User ("login","name","password"));
+		
+		
+	}
+	
+}

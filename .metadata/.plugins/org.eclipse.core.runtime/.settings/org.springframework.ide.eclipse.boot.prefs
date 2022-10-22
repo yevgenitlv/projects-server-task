@@ -1,0 +1,16 @@
+eclipse.preferences.version=1
+org.springframework.ide.eclipse.boot.wizard.PopularityTracker.data-mongodb-reactive=1
+org.springframework.ide.eclipse.boot.wizard.PopularityTracker.lombok=2
+org.springframework.ide.eclipse.boot.wizard.PopularityTracker.webflux=2
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.artifactId=api
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.bootVersion=2.7.5
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.description=Demo project for Reactive API
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.groupId=com.yevgeni
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.javaVersion=17
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.language=java
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.name=api
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.packageName=com.yevgeni.demo
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.packaging=jar
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.type=MAVEN
+org.springframework.ide.eclipse.boot.wizard.PreferredSelections.version=0.0.1-SNAPSHOT
+org.springframework.ide.eclipse.boot.wizard.initializr.url=https\://start.spring.io\n

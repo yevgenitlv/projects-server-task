@@ -1,0 +1,64 @@
+package com.yevgeni.api.controller;
+
+
+import com.yevgeni.api.model.Project;
+import com.yevgeni.api.service.ProjectService;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
+
+import java.time.Duration;
+import java.util.stream.Stream;
+
+@RequiredArgsConstructor
+@RestController
+@RequestMapping("/projects")
+public class ProjectController {
+
+    private final ProjectService projectService;
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Mono<Project> create(@RequestBody Project Project){
+        return projectService.createProject(Project);
+    }
+
+    @GetMapping
+    public Flux<Project> getAllProjects(){
+        return projectService.getAllProjects();
+    }
+
+    @GetMapping
+    public Mono<ResponseEntity<Project>> getProjectById(@RequestParam("id") String id){
+        Mono<Project> Project = projectService.findById(id);
+        return Project.map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping
+    public Mono<ResponseEntity<Project>> updateProjectById(@RequestParam("id") String id, @RequestBody Project Project){
+        return projectService.updateProject(id,Project)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.badRequest().build());
+    }
+
+    @DeleteMapping
+    public Mono<ResponseEntity<Void>> deleteProjectById(@RequestParam("id") String id){
+        return projectService.deleteProject(id)
+                .map( r -> ResponseEntity.ok().<Void>build())
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/search")
+    public Flux<Project> searchProjects(@RequestParam("name") String name) {
+        return projectService.fetchProjects(name);
+    }
+
+
+}

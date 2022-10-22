@@ -1,0 +1,33 @@
+package com.yevgeni.demo;
+
+import static org.mockito.Mockito.times;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+
+import com.yevgeni.demo.model.User;
+import com.yevgeni.demo.repository.UserRepository;
+
+import reactor.core.publisher.Mono;
+
+@ExtendWith(SpringExtension.class)
+public class UserRepositoryTests {
+
+	@MockBean
+    private UserRepository userRepository;
+	
+	
+	
+	@Test
+	private void createUser(){
+		
+		User user = new User ("login","name","password");
+		Mockito.when(userRepository.save(user)).thenReturn(Mono.just(user));
+		Mockito.verify(userRepository, times(1)).save(user);
+		System.out.println("OK");
+	}
+	
+}

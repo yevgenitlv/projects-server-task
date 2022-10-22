@@ -1,0 +1,33 @@
+package com.yevgeni.demo;
+
+import static org.mockito.Mockito.times;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import com.yevgeni.demo.model.User;
+import com.yevgeni.demo.repository.UserRepository;
+
+import lombok.val;
+import reactor.core.publisher.Mono;
+
+@SpringBootTest
+@DataMongoTest
+public class UserRepositoryTests {
+
+	@Autowired
+    private UserRepository userRepository;
+	
+	@Test
+	private void createUser(){
+		
+		val user = new User ("login","name","password");
+		Mockito.when(userRepository.save(user)).thenReturn(Mono.just(user));
+		Mockito.verify(userRepository, times(1)).save(user);
+		
+	}
+	
+}

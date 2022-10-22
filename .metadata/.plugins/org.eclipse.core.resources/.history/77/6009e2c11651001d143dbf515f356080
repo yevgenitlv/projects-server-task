@@ -1,0 +1,16 @@
+package com.yevgeni.demo.model;
+
+import lombok.*;
+import lombok.ToString;
+
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+public class Project {
+
+    private String id;
+    private String name;
+    private boolean status;
+
+}

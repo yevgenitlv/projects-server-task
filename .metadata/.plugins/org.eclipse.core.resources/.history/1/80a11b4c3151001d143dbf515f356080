@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: agent
+  webflux:
+    base-path: /agent
+  data:
+    mongodb:
+      authentication-database: admin
+      uri: mongodb+srv://admin:tandem@cluster0.l6eotqn.mongodb.net/?retryWrites=true&w=majority
+      database: demo
+
+server:
+  port: 9010
+  http2:
+    enabled: true
+
+logging:
+  level:
+    io:
+      reflectoring: DEBUG
+    org:
+      springframework:
+        web: INFO
+        data:
+          mongodb:
+            core:
+              ReactiveMongoTemplate: DEBUG
+    reactor:
+      netty:
+        http:
+          client: DEBUG

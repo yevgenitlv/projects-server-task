@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: projects-server-task-api
+  webflux:
+    base-path: /api
+  data:
+    mongodb:
+      authentication-database: admin
+      uri: mongodb+srv://admin:tandem@cluster0.l6eotqn.mongodb.net/?retryWrites=true&w=majority
+      database: test
+
+server:
+  port: 9000
+  http2:
+    enabled: true
+
+logging:
+  level:
+    io:
+      reflectoring: DEBUG
+    org:
+      springframework:
+        web: INFO
+        data:
+          mongodb:
+            core:
+              ReactiveMongoTemplate: DEBUG
+    reactor:
+      netty:
+        http:
+          client: DEBUG

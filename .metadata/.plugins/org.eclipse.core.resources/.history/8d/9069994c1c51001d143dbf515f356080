@@ -1,0 +1,41 @@
+package com.yevgeni.demo.service;
+
+import com.yevgeni.demo.model.Project;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+
+public class ProjectService {
+
+
+    public Mono<Project> createProject(Project project){
+    	return null;
+    }
+
+    public Flux<Project> getAllProjects(){
+    	return null;
+    }
+
+    public Mono<Project> findById(String projectId){
+    	return null;
+    }
+
+    public Mono<Project> updateProject(String projectId,  Project project){
+    	return null;
+    	
+    }
+
+    public Mono<Project> deleteProject(String projectId){
+    	return null;
+    }
+
+    public Flux<Project> fetchProjects(String name) {
+    	return null;
+    }
+}
