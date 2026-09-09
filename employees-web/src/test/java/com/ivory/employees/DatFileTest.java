@@ -29,7 +29,7 @@ class DatFileTest {
                 1001;Avi Cohen;1;Herzl;12;Tel Aviv;Israel
 
                 1002; Maya Levi ;0;Ben Yehuda;45B;Tel Aviv;Israel
-                """));
+                """)).rows();
 
         assertEquals(2, rows.size(), "blank lines are skipped");
         assertEquals("1001", rows.get(0).get("CODE"));
@@ -43,7 +43,7 @@ class DatFileTest {
         List<DatFile.Row> rows = DatFile.read(new StringReader("""
                 EMPLYEE_CODE;MONTH;GROSS;TAX;TOTAL
                 1001;01/2025;28000;5000;23000
-                """));
+                """)).rows();
 
         DatFile.Row row = rows.get(0);
         assertEquals("1001", row.get("EMPLOYEE_CODE", "EMPLYEE_CODE"));
@@ -55,7 +55,7 @@ class DatFileTest {
         List<DatFile.Row> rows = DatFile.read(new StringReader("""
                 CODE;NAME;IS_ACTIVE;ADDRESS_STREET
                 1003;Daniel Mizrahi;1
-                """));
+                """)).rows();
 
         assertEquals("Daniel Mizrahi", rows.get(0).get("NAME"));
         assertNull(rows.get(0).get("ADDRESS_STREET"), "missing trailing fields read as null");
@@ -70,7 +70,7 @@ class DatFileTest {
         Files.write(file, ("CODE;NAME;IS_ACTIVE\n1001;\u05d0\u05d1\u05d9 \u05db\u05d4\u05df;1\n")
                 .getBytes(windows1255));
 
-        List<DatFile.Row> rows = DatFile.read(file);
+        List<DatFile.Row> rows = DatFile.read(file).rows();
 
         assertEquals("\u05d0\u05d1\u05d9 \u05db\u05d4\u05df", rows.get(0).get("NAME"),
                 "a file that is not valid UTF-8 must fall back, not abort the import");
@@ -80,11 +80,11 @@ class DatFileTest {
     void readsUtf8WithAndWithoutAByteOrderMark(@TempDir Path dir) throws IOException {
         Path plain = dir.resolve("plain.dat");
         Files.writeString(plain, "CODE;NAME\n1001;Ren\u00e9e Fran\u00e7ois\n", StandardCharsets.UTF_8);
-        assertEquals("Ren\u00e9e Fran\u00e7ois", DatFile.read(plain).get(0).get("NAME"));
+        assertEquals("Ren\u00e9e Fran\u00e7ois", DatFile.read(plain).rows().get(0).get("NAME"));
 
         Path withBom = dir.resolve("bom.dat");
         Files.writeString(withBom, "\ufeffCODE;NAME\n1001;Ren\u00e9e Fran\u00e7ois\n", StandardCharsets.UTF_8);
-        List<DatFile.Row> rows = DatFile.read(withBom);
+        List<DatFile.Row> rows = DatFile.read(withBom).rows();
         assertEquals("1001", rows.get(0).get("CODE"), "the byte-order mark must not end up in the first field name");
         assertEquals("Ren\u00e9e Fran\u00e7ois", rows.get(0).get("NAME"));
     }
@@ -94,7 +94,7 @@ class DatFileTest {
         Path file = dir.resolve("latin1.dat");
         Files.write(file, "CODE;NAME\n1001;Ren\u00e9e\n".getBytes(StandardCharsets.ISO_8859_1));
 
-        assertEquals("Ren\u00e9e", DatFile.read(file, StandardCharsets.ISO_8859_1).get(0).get("NAME"));
+        assertEquals("Ren\u00e9e", DatFile.read(file, StandardCharsets.ISO_8859_1).rows().get(0).get("NAME"));
     }
 
     @Test

@@ -82,7 +82,10 @@ public final class DataImporter {
     }
 
     private int importEmployees(Path file) throws IOException, SQLException {
-        List<DatFile.Row> rows = DatFile.read(file, config.dataCharset());
+        DatFile.Table table = DatFile.read(file, config.dataCharset());
+        describe(file, table);
+        requireFields(file, table, List.of(new String[]{"CODE"}, new String[]{"NAME"}));
+        Skipped skipped = new Skipped(file);
         String sql = """
                 MERGE INTO EMPLOYEES (CODE, NAME, IS_ACTIVE, ADDRESS_STREET, ADDRESS_NUMBER,
                                       ADDRESS_CITY, ADDRESS_COUNTRY)
@@ -91,7 +94,7 @@ public final class DataImporter {
         try (Connection connection = database.connection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             int batched = 0;
-            for (DatFile.Row row : rows) {
+            for (DatFile.Row row : table.rows()) {
                 try {
                     statement.setLong(1, Long.parseLong(row.require("CODE")));
                     statement.setString(2, row.require("NAME"));
@@ -103,17 +106,24 @@ public final class DataImporter {
                     statement.addBatch();
                     batched++;
                 } catch (RuntimeException e) {
-                    LOG.log(Level.WARNING, e, () -> "Skipping employee record on line " + row.lineNumber()
-                            + ": " + e.getMessage());
+                    skipped.record(row.lineNumber(), e);
                 }
             }
             statement.executeBatch();
+            skipped.summarise();
             return batched;
         }
     }
 
     private int importSalaries(Path file) throws IOException, SQLException {
-        List<DatFile.Row> rows = DatFile.read(file, config.dataCharset());
+        DatFile.Table table = DatFile.read(file, config.dataCharset());
+        describe(file, table);
+        requireFields(file, table, List.of(
+                new String[]{"EMPLOYEE_CODE", "EMPLYEE_CODE", "CODE"},
+                new String[]{"MONTH"},
+                new String[]{"GROSS"},
+                new String[]{"TAX"}));
+        Skipped skipped = new Skipped(file);
         String sql = """
                 MERGE INTO SALARIES (EMPLOYEE_CODE, "MONTH", GROSS, TAX, TOTAL)
                 KEY (EMPLOYEE_CODE, "MONTH") VALUES (?, ?, ?, ?, ?)
@@ -121,7 +131,7 @@ public final class DataImporter {
         try (Connection connection = database.connection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             int batched = 0;
-            for (DatFile.Row row : rows) {
+            for (DatFile.Row row : table.rows()) {
                 try {
                     BigDecimal gross = parseAmount(row.require("GROSS"));
                     BigDecimal tax = parseAmount(row.require("TAX"));
@@ -136,12 +146,66 @@ public final class DataImporter {
                     statement.addBatch();
                     batched++;
                 } catch (RuntimeException e) {
-                    LOG.log(Level.WARNING, e, () -> "Skipping salary record on line " + row.lineNumber()
-                            + ": " + e.getMessage());
+                    skipped.record(row.lineNumber(), e);
                 }
             }
             statement.executeBatch();
+            skipped.summarise();
             return batched;
+        }
+    }
+
+    /** Logs the field names a file declares, so a header mismatch is visible at a glance. */
+    private static void describe(Path file, DatFile.Table table) {
+        LOG.info(() -> file.getFileName() + ": " + table.rows().size() + " record(s), fields "
+                + table.header());
+    }
+
+    /**
+     * Fails immediately when the header lacks a field the import needs. Without this a wrong header
+     * produces one warning per record - thousands of them - and an empty table at the end.
+     *
+     * @param required each entry is a set of accepted spellings for one field
+     */
+    private static void requireFields(Path file, DatFile.Table table, List<String[]> required) {
+        List<String> missing = required.stream()
+                .filter(names -> !table.has(names))
+                .map(names -> String.join("/", names))
+                .toList();
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException(file.getFileName() + " has no column for " + missing
+                    + ". Its header declares " + table.header()
+                    + ". Rename the columns, or adjust the field names this importer accepts.");
+        }
+    }
+
+    /** Counts unreadable records, logging the first few in full and the rest as a total. */
+    private static final class Skipped {
+
+        private static final int LOGGED_IN_FULL = 10;
+
+        private final Path file;
+        private int count;
+
+        private Skipped(Path file) {
+            this.file = file;
+        }
+
+        void record(int lineNumber, RuntimeException failure) {
+            count++;
+            if (count <= LOGGED_IN_FULL) {
+                LOG.warning(() -> "Skipping " + file.getFileName() + " line " + lineNumber + ": "
+                        + failure.getMessage());
+            } else if (count == LOGGED_IN_FULL + 1) {
+                LOG.warning(() -> "Further unreadable records in " + file.getFileName()
+                        + " are counted but not logged individually");
+            }
+        }
+
+        void summarise() {
+            if (count > 0) {
+                LOG.warning(() -> "Skipped " + count + " unreadable record(s) in " + file.getFileName());
+            }
         }
     }
 

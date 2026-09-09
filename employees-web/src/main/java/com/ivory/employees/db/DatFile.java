@@ -46,6 +46,20 @@ public final class DatFile {
     private DatFile() {
     }
 
+    /** A parsed file: the field names taken from its first record, plus the data records. */
+    public record Table(List<String> header, List<Row> rows) {
+
+        /** True when the header carries any of these field names. */
+        public boolean has(String... names) {
+            for (String name : names) {
+                if (header.contains(name.toUpperCase())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     /** One data record, addressable by field name. */
     public record Row(int lineNumber, Map<String, String> values) {
 
@@ -72,7 +86,7 @@ public final class DatFile {
     }
 
     /** Reads a file, working out its encoding. Equivalent to {@code read(file, null)}. */
-    public static List<Row> read(Path file) throws IOException {
+    public static Table read(Path file) throws IOException {
         return read(file, null);
     }
 
@@ -84,7 +98,7 @@ public final class DatFile {
      *                fails is it re-read as {@value #FALLBACK_CHARSET} (with a warning naming the
      *                file, so a wrong guess is visible rather than silent).
      */
-    public static List<Row> read(Path file, Charset charset) throws IOException {
+    public static Table read(Path file, Charset charset) throws IOException {
         Charset declared = charset != null ? charset : byteOrderMarkCharset(file);
         if (declared != null) {
             try (Reader reader = open(file, declared, CodingErrorAction.REPLACE)) {
@@ -136,7 +150,7 @@ public final class DatFile {
                 : StandardCharsets.ISO_8859_1;
     }
 
-    public static List<Row> read(Reader source) throws IOException {
+    public static Table read(Reader source) throws IOException {
         List<Row> rows = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(source)) {
             List<String> header = null;
@@ -164,8 +178,8 @@ public final class DatFile {
             if (header == null) {
                 throw new IOException("the file holds no header record");
             }
+            return new Table(header, rows);
         }
-        return rows;
     }
 
     private static List<String> split(String line) {
