@@ -82,7 +82,7 @@ public final class DataImporter {
     }
 
     private int importEmployees(Path file) throws IOException, SQLException {
-        List<DatFile.Row> rows = DatFile.read(file);
+        List<DatFile.Row> rows = DatFile.read(file, config.dataCharset());
         String sql = """
                 MERGE INTO EMPLOYEES (CODE, NAME, IS_ACTIVE, ADDRESS_STREET, ADDRESS_NUMBER,
                                       ADDRESS_CITY, ADDRESS_COUNTRY)
@@ -113,7 +113,7 @@ public final class DataImporter {
     }
 
     private int importSalaries(Path file) throws IOException, SQLException {
-        List<DatFile.Row> rows = DatFile.read(file);
+        List<DatFile.Row> rows = DatFile.read(file, config.dataCharset());
         String sql = """
                 MERGE INTO SALARIES (EMPLOYEE_CODE, "MONTH", GROSS, TAX, TOTAL)
                 KEY (EMPLOYEE_CODE, "MONTH") VALUES (?, ?, ?, ?, ?)
