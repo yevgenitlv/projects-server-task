@@ -1,5 +1,6 @@
 package com.ivory.employees.config;
 
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -18,6 +19,9 @@ public final class AppConfig {
     private final String jdbcUser;
     private final String jdbcPassword;
     private final Path dataDir;
+    private final Charset dataCharset;
+    private final Character dataDelimiter;
+    private final boolean hebrewIsVisual;
     private final boolean reloadData;
     private final Duration cacheTtl;
     private final Duration sessionTtl;
@@ -30,6 +34,9 @@ public final class AppConfig {
         this.jdbcUser = get("employees.db.user", "sa");
         this.jdbcPassword = get("employees.db.password", "");
         this.dataDir = Path.of(get("employees.data.dir", "./data"));
+        this.dataCharset = parseCharset(get("employees.data.charset", ""));
+        this.dataDelimiter = parseDelimiter(get("employees.data.delimiter", ""));
+        this.hebrewIsVisual = "visual".equalsIgnoreCase(get("employees.data.hebrew", "as-is").trim());
         this.reloadData = Boolean.parseBoolean(get("employees.data.reload", "false"));
         this.cacheTtl = Duration.ofMinutes(getLong("employees.cache.ttl.minutes", 120));
         this.sessionTtl = Duration.ofMinutes(getLong("employees.session.ttl.minutes", 60));
@@ -56,6 +63,29 @@ public final class AppConfig {
 
     public Path dataDir() {
         return dataDir;
+    }
+
+    /**
+     * Encoding of the .dat files, or {@code null} to work it out per file (byte-order mark, then
+     * UTF-8, then a legacy code page).
+     */
+    public Charset dataCharset() {
+        return dataCharset;
+    }
+
+    /**
+     * Field separator of the .dat files, or {@code null} to work it out from each file's header.
+     */
+    public Character dataDelimiter() {
+        return dataDelimiter;
+    }
+
+    /**
+     * True when the .dat files hold Hebrew in visual (reversed) order and it should be converted to
+     * logical order on import. Off by default: the data is then stored exactly as the file has it.
+     */
+    public boolean hebrewIsVisual() {
+        return hebrewIsVisual;
     }
 
     /** When true the .dat files are re-imported even if the tables already hold rows. */
@@ -89,12 +119,41 @@ public final class AppConfig {
     public String toString() {
         return "AppConfig[jdbcUrl=" + jdbcUrl
                 + ", dataDir=" + dataDir.toAbsolutePath().normalize()
+                + ", dataCharset=" + (dataCharset == null ? "auto" : dataCharset.name())
+                + ", dataDelimiter=" + (dataDelimiter == null ? "auto" : "'" + dataDelimiter + "'")
+                + ", hebrew=" + (hebrewIsVisual ? "visual->logical" : "as-is")
                 + ", reloadData=" + reloadData
                 + ", cacheTtl=" + cacheTtl
                 + ", sessionTtl=" + sessionTtl
                 + ", seedUsers=" + seedUsers.keySet()
                 + ", prettyJson=" + prettyJson
                 + ", port=" + port + ']';
+    }
+
+    private static Charset parseCharset(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Charset.forName(raw.trim());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("employees.data.charset is not a known encoding: " + raw, e);
+        }
+    }
+
+    private static Character parseDelimiter(String raw) {
+        if (raw == null || raw.isBlank() || "auto".equalsIgnoreCase(raw.trim())) {
+            return null;
+        }
+        String value = raw.trim();
+        if ("tab".equalsIgnoreCase(value) || "\\t".equals(value)) {
+            return '\t';
+        }
+        if (value.length() != 1) {
+            throw new IllegalArgumentException(
+                    "employees.data.delimiter must be a single character, 'tab' or 'auto': " + raw);
+        }
+        return value.charAt(0);
     }
 
     private static Map<String, String> parseUsers(String raw) {

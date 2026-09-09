@@ -1,86 +1,49 @@
-# projects-server-task
+# Employee Server
 
-Dockers for micro-servers
+A Java web server exposing employee and salary services over HTTP/JSON.
 
+Plain Jakarta Servlet application — **no Spring, no Spring Boot, no ORM, no JSON library**. Three
+dependencies in total: the Servlet API (supplied by the container), embedded Tomcat (only so the app
+can run standalone) and the H2 database driver.
 
-Spring Boot
-Webflux
-Reactive MongoDB
+The whole project lives in one module:
 
-A micro-services server that allows to create projects that contains multi-users.
+```
+employees-web/          the server — sources, tests, sample data, full documentation
+```
 
-1. API Service
+## Quick start
 
-An external API server that recieves the requests from the client (API Controller listens to port 9020)
+```bash
+cd employees-web
+mvn compile exec:java            # http://localhost:8080
+```
 
-2. Agent Service
+```bash
+BASE=http://localhost:8080
 
-A micro-service responsible for all the business logic of the application.
-Responsible for saving entities on Mongo DB
+TOKEN=$(curl -s -X POST $BASE/api/login \
+          -H 'Content-Type: application/json' \
+          -d '{"username":"admin","password":"Aa123456!"}' | grep -oP '"token": "\K[^"]+')
 
-API operations:
+curl -s -H "Authorization: Bearer $TOKEN" \
+     "$BASE/api/employees?filter=active&sort=annualIncome&order=desc"
+```
 
-User:
+## What it does
 
-{
-userId: String  (may serve as a login as far as it is unique value)
+- **Login** — registration and authentication before any service may be used.
+- **Employee list** — filtered (all / only active / by record-number range) and sorted ascending or
+  descending by employee code, employee name or annual income.
+- **Employee data** — general details, address details and an optional salaries list, served from a
+  cache with a two-hour retention.
+- **Structured JSON** responses and a readable log of every request and its answer.
 
-name: String
+Employee and salary data is loaded from the `Employees.dat` / `Salaries.dat` ASCII files into an
+embedded H2 database (`EMPLOYEES`, `SALARIES`).
 
-password: String
-}
+## Documentation
 
-Project:
-
-{
-name :String
-
-status :boolean
-}
-
-User CRUD operations:
-1. Retrieve all users:
-GET: /api/users
-2. Retrieve user by id:
-GET: /api/users/{userId}
-3. Update user by id:
-PUT: /api/users/{userId}
-
-     {User DTO as request body}
-4. Delete user:
-DELETE: /api/users/{userId}
-5. Search users by name:
-GET: /api/users/search
-
-     Parameters: name;
-
-Project CRUD operations:
-
-1. Retreive all projects:
-GET: /api/projects
-2. Retrieve project by id:
-GET: /api/projects/{id}
-3. Update project:
-PUT: /api/projects/{id} 
-
-      {Project DTO as request body}
-4. Delete project:
-DELETE: /api/projects/{id}
-5. Search projects by name:
-GET: /api/projects/search
-
-     Parameters: name;
-6. Add user to project:
-PUT: /api/adduser
-
-     Parameters: projectId;
-                 userId;
-7. Remove user from project:
-PUT: /api/removeuser
-
-     Parameters: projectId;
-                 userId;
-                 
-                 
-                 
-                 
+[`employees-web/README.md`](employees-web/README.md) covers the services and their parameters, the
+JSON shapes, the cache, the database schema, the data-file loader (encoding, delimiter and Hebrew
+handling), logging and the full configuration table.

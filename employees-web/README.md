@@ -4,7 +4,9 @@ A Java web server exposing employee and salary services over HTTP/JSON.
 
 Plain Jakarta Servlet application - **no Spring, no Spring Boot, no ORM, no JSON library**. The
 whole dependency list is three artifacts: the Servlet API (supplied by the container), embedded
-Tomcat (only to run the app standalone) and the H2 database driver.
+Tomcat (only to run the app standalone) and the H2 database driver. The WAR ships just one of them:
+`maven-war-plugin` excludes the embedded container, so a WAR deployed to a real Tomcat never carries
+a second copy of Catalina.
 
 ---
 
@@ -28,8 +30,11 @@ Both paths run the same wiring: [`WebApp`](src/main/java/com/ivory/employees/web
 registers the servlets and filters programmatically, and is picked up either through
 `@WebListener` (WAR) or by [`Launcher`](src/main/java/com/ivory/employees/Launcher.java) (embedded).
 
+Running `Launcher` straight from an IDE works too - set the working directory to this module so
+`./data` resolves.
+
 ```bash
-mvn test                         # 23 unit / integration tests
+mvn test                         # 30 unit / integration tests
 ```
 
 ## A first call
@@ -159,10 +164,32 @@ CODE;NAME;IS_ACTIVE;ADDRESS_STREET;ADDRESS_NUMBER;ADDRESS_CITY;ADDRESS_COUNTRY
 To import the real files, drop them into `data/` and start with `-Demployees.data.reload=true`.
 The reader ([`DatFile`](src/main/java/com/ivory/employees/db/DatFile.java)) is deliberately tolerant:
 it trims values, skips blank lines, accepts short records, and accepts both the correct field names
-and the spellings printed in the specification (`ADRESS_CITY`, `EMPLYEE_CODE`). `MONTH` is accepted
+and the spellings printed in the specification (`ADRESS_CITY`, `EMPLYEE_CODE`).
+
+**The delimiter** is worked out per file too: whichever of `;` `,` tab or `|` the header record uses
+most. The specification describes these files as semicolon-delimited, but real exports are often
+comma-delimited. Override with `-Demployees.data.delimiter=,` (or `tab`).
+
+**A value may contain the delimiter.** These files quote nothing, so `Cohen, Avi` in a
+comma-delimited file splits the record. `EMPLOYEES.NAME` is the one column allowed to do this: every
+other column is anchored, those before it from the left and those after it from the right, and the
+surplus fields are joined back into the name.
+
+**Hebrew direction.** The supplied files hold Hebrew in *visual* (reversed) order - the city Haifa
+is stored `הפיח`, which reads correctly back to front as `חיפה`. By default the text is stored
+exactly as the file has it. `-Demployees.data.hebrew=visual` converts it to logical order on import,
+flipping digit runs back so a house number 35 does not become 53
+([`HebrewText`](src/main/java/com/ivory/employees/util/HebrewText.java)).
+
+**Encoding** is worked out per file rather than assumed: a byte-order mark decides when there is
+one (UTF-8, UTF-16LE, UTF-16BE), otherwise the file is read as UTF-8, and only if that fails is it
+re-read as `windows-1255` - the Hebrew ANSI code page - with a warning naming the file. Set
+`-Demployees.data.charset=windows-1252` (or any encoding) to override the guess. `MONTH` is accepted
 as `yyyy-MM-dd`, `dd/MM/yyyy`, `dd-MM-yyyy`, `dd.MM.yyyy`, `yyyy-MM`, `MM/yyyy` or `yyyyMM`;
-`IS_ACTIVE` as `1/0`, `true/false` or `Y/N`. A record that cannot be read is logged and skipped
-rather than aborting the whole import.
+`IS_ACTIVE` as `1/0`, `true/false` or `Y/N`. An employee with no name is still imported - a code
+with a blank name is a real record - and a salary row naming an employee the other file does not
+list is skipped rather than being allowed to break the foreign key and abort the import. A record
+that cannot be read at all is logged and skipped; the first ten are logged in full, the rest counted.
 
 ## Logging
 
@@ -190,6 +217,9 @@ upper-cased with `.` replaced by `_` (`EMPLOYEES_CACHE_TTL_MINUTES`), then from 
 | `employees.db.url`               | `jdbc:h2:file:./data/db/employees;AUTO_SERVER=TRUE` | JDBC URL |
 | `employees.db.user` / `.password`| `sa` / *(empty)*                                 | Credentials |
 | `employees.data.dir`             | `./data`                                         | Where the `.dat` files live |
+| `employees.data.charset`         | *(auto)*                                         | Encoding of the `.dat` files; empty means detect |
+| `employees.data.delimiter`       | *(auto)*                                         | Field separator of the `.dat` files; empty means detect |
+| `employees.data.hebrew`          | `as-is`                                          | `visual` converts visual-order Hebrew to logical order |
 | `employees.data.reload`          | `false`                                          | Re-import the `.dat` files even when the tables hold rows |
 | `employees.cache.ttl.minutes`    | `120`                                            | Cache retention time |
 | `employees.session.ttl.minutes`  | `60`                                             | Session lifetime |

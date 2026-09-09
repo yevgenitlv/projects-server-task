@@ -53,7 +53,13 @@ public final class Launcher {
         context.addApplicationListener(WebApp.class.getName());
 
         tomcat.start();
-        // Tomcat only logs a failed bind, it does not stop; refuse to pretend the server is up.
+        // Tomcat logs a failed startup but keeps running, leaving a server that answers 404 to
+        // everything. Refuse to pretend it is up: report the real reason and exit.
+        if (!context.getState().isAvailable()) {
+            tomcat.destroy();
+            throw new IllegalStateException("The application failed to start - see the errors logged above. "
+                    + "No services are registered, so the server is stopping instead of answering 404.");
+        }
         if (!connector.getState().isAvailable()) {
             tomcat.destroy();
             throw new IllegalStateException("Could not listen on port " + config.port()

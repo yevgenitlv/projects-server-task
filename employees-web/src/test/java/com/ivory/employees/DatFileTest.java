@@ -4,9 +4,15 @@ import com.ivory.employees.db.DataImporter;
 import com.ivory.employees.db.DatFile;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -23,7 +29,7 @@ class DatFileTest {
                 1001;Avi Cohen;1;Herzl;12;Tel Aviv;Israel
 
                 1002; Maya Levi ;0;Ben Yehuda;45B;Tel Aviv;Israel
-                """));
+                """)).rows();
 
         assertEquals(2, rows.size(), "blank lines are skipped");
         assertEquals("1001", rows.get(0).get("CODE"));
@@ -37,7 +43,7 @@ class DatFileTest {
         List<DatFile.Row> rows = DatFile.read(new StringReader("""
                 EMPLYEE_CODE;MONTH;GROSS;TAX;TOTAL
                 1001;01/2025;28000;5000;23000
-                """));
+                """)).rows();
 
         DatFile.Row row = rows.get(0);
         assertEquals("1001", row.get("EMPLOYEE_CODE", "EMPLYEE_CODE"));
@@ -49,11 +55,97 @@ class DatFileTest {
         List<DatFile.Row> rows = DatFile.read(new StringReader("""
                 CODE;NAME;IS_ACTIVE;ADDRESS_STREET
                 1003;Daniel Mizrahi;1
-                """));
+                """)).rows();
 
         assertEquals("Daniel Mizrahi", rows.get(0).get("NAME"));
         assertNull(rows.get(0).get("ADDRESS_STREET"), "missing trailing fields read as null");
         assertThrows(IllegalArgumentException.class, () -> rows.get(0).require("ADDRESS_STREET"));
+    }
+
+    /** The exported files are rarely UTF-8; the reader must work the encoding out per file. */
+    @Test
+    void readsAFileStoredInALegacyHebrewCodePage(@TempDir Path dir) throws IOException {
+        Charset windows1255 = Charset.forName("windows-1255");
+        Path file = dir.resolve("Employees.dat");
+        Files.write(file, ("CODE;NAME;IS_ACTIVE\n1001;\u05d0\u05d1\u05d9 \u05db\u05d4\u05df;1\n")
+                .getBytes(windows1255));
+
+        List<DatFile.Row> rows = DatFile.read(file).rows();
+
+        assertEquals("\u05d0\u05d1\u05d9 \u05db\u05d4\u05df", rows.get(0).get("NAME"),
+                "a file that is not valid UTF-8 must fall back, not abort the import");
+    }
+
+    @Test
+    void readsUtf8WithAndWithoutAByteOrderMark(@TempDir Path dir) throws IOException {
+        Path plain = dir.resolve("plain.dat");
+        Files.writeString(plain, "CODE;NAME\n1001;Ren\u00e9e Fran\u00e7ois\n", StandardCharsets.UTF_8);
+        assertEquals("Ren\u00e9e Fran\u00e7ois", DatFile.read(plain).rows().get(0).get("NAME"));
+
+        Path withBom = dir.resolve("bom.dat");
+        Files.writeString(withBom, "\ufeffCODE;NAME\n1001;Ren\u00e9e Fran\u00e7ois\n", StandardCharsets.UTF_8);
+        List<DatFile.Row> rows = DatFile.read(withBom).rows();
+        assertEquals("1001", rows.get(0).get("CODE"), "the byte-order mark must not end up in the first field name");
+        assertEquals("Ren\u00e9e Fran\u00e7ois", rows.get(0).get("NAME"));
+    }
+
+    @Test
+    void anExplicitCharsetOverridesTheGuess(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("latin1.dat");
+        Files.write(file, "CODE;NAME\n1001;Ren\u00e9e\n".getBytes(StandardCharsets.ISO_8859_1));
+
+        assertEquals("Ren\u00e9e", DatFile.read(file, StandardCharsets.ISO_8859_1).rows().get(0).get("NAME"));
+    }
+
+    /** The supplied files are comma-delimited, though the specification describes semicolons. */
+    @Test
+    void detectsACommaDelimitedFile() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("""
+                CODE,NAME,IS_ACTIVE,ADDRESS_STREET,ADDRESS_NUMBER,ADRESS_CITY,ADDRESS_COUNTRY
+                87039,Avi Cohen                     ,1,Ha-Nassi  19          ,1,Haifa          ,900
+                """));
+
+        assertEquals(',', table.delimiter());
+        assertEquals(7, table.header().size());
+        DatFile.Row row = table.rows().get(0);
+        assertEquals("87039", row.get("CODE"));
+        assertEquals("Avi Cohen", row.get("NAME"), "padding is trimmed off");
+        assertEquals("Haifa", row.get("ADDRESS_CITY", "ADRESS_CITY"), "the spec spells this ADRESS_CITY");
+        assertEquals("900", row.get("ADDRESS_COUNTRY"));
+    }
+
+    @Test
+    void readsTheSuppliedSalaryLayout() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("""
+                EMPLYEE_CODE,MONTH,GROSS,TAX,TOTAL
+                845707,01/01/2022,825.01,123.75,701.26
+                """));
+
+        DatFile.Row row = table.rows().get(0);
+        assertEquals("845707", row.get("EMPLOYEE_CODE", "EMPLYEE_CODE"), "the spec drops the O in EMPLOYEE");
+        assertEquals(LocalDate.of(2022, 1, 1), DataImporter.parseMonth(row.get("MONTH")));
+        assertEquals(new BigDecimal("825.01"), DataImporter.parseAmount(row.get("GROSS")));
+        assertEquals(new BigDecimal("701.26"), DataImporter.parseAmount(row.get("TOTAL")));
+    }
+
+    @Test
+    void keepsUsingSemicolonsWhenThatIsWhatTheFileUses() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("""
+                CODE;NAME;IS_ACTIVE
+                1001;Cohen, Avi;1
+                """));
+
+        assertEquals(';', table.delimiter());
+        assertEquals("Cohen, Avi", table.rows().get(0).get("NAME"),
+                "a comma inside a value must not split the record");
+    }
+
+    @Test
+    void anExplicitDelimiterOverridesTheGuess() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("CODE|NAME\n1001|Avi\n"), '|');
+
+        assertEquals('|', table.delimiter());
+        assertEquals("Avi", table.rows().get(0).get("NAME"));
     }
 
     @Test
