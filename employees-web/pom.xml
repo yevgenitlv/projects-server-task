@@ -31,14 +31,15 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Embedded Tomcat: only used by com.ivory.employees.Launcher to run the app standalone.
-         'provided' keeps it out of the WAR, but still on the compile/test classpath, which is
-         what `mvn exec:java` uses (exec.classpathScope=test, configured below). -->
+    <!-- Embedded Tomcat: used by com.ivory.employees.Launcher to run the app standalone.
+         Deliberately at compile scope rather than 'provided', so that running Launcher works out of
+         the box everywhere - `mvn exec:java`, `java -cp`, and an IDE's Run button, none of which
+         put 'provided' jars on the run classpath by default. The WAR must not carry a second copy
+         of Catalina, so maven-war-plugin excludes these jars from it (see packagingExcludes). -->
     <dependency>
       <groupId>org.apache.tomcat.embed</groupId>
       <artifactId>tomcat-embed-core</artifactId>
       <version>${tomcat.version}</version>
-      <scope>provided</scope>
     </dependency>
 
     <!-- The database. Embedded H2, plain JDBC - no ORM, no connection-pool library
@@ -79,6 +80,12 @@
         <configuration>
           <!-- Servlets/filters are registered programmatically (see WebApp), no web.xml needed. -->
           <failOnMissingWebXml>false</failOnMissingWebXml>
+          <!-- The embedded container is a launcher-only concern: a WAR deployed to a real Tomcat
+               must not ship its own Catalina classes. -->
+          <packagingExcludes>
+            WEB-INF/lib/tomcat-embed-*.jar,
+            WEB-INF/lib/tomcat-annotations-api-*.jar
+          </packagingExcludes>
         </configuration>
       </plugin>
 
@@ -89,7 +96,6 @@
         <version>3.1.1</version>
         <configuration>
           <mainClass>com.ivory.employees.Launcher</mainClass>
-          <classpathScope>test</classpathScope>
         </configuration>
       </plugin>
     </plugins>
