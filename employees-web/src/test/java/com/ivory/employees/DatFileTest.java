@@ -4,9 +4,15 @@ import com.ivory.employees.db.DataImporter;
 import com.ivory.employees.db.DatFile;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -54,6 +60,41 @@ class DatFileTest {
         assertEquals("Daniel Mizrahi", rows.get(0).get("NAME"));
         assertNull(rows.get(0).get("ADDRESS_STREET"), "missing trailing fields read as null");
         assertThrows(IllegalArgumentException.class, () -> rows.get(0).require("ADDRESS_STREET"));
+    }
+
+    /** The exported files are rarely UTF-8; the reader must work the encoding out per file. */
+    @Test
+    void readsAFileStoredInALegacyHebrewCodePage(@TempDir Path dir) throws IOException {
+        Charset windows1255 = Charset.forName("windows-1255");
+        Path file = dir.resolve("Employees.dat");
+        Files.write(file, ("CODE;NAME;IS_ACTIVE\n1001;\u05d0\u05d1\u05d9 \u05db\u05d4\u05df;1\n")
+                .getBytes(windows1255));
+
+        List<DatFile.Row> rows = DatFile.read(file);
+
+        assertEquals("\u05d0\u05d1\u05d9 \u05db\u05d4\u05df", rows.get(0).get("NAME"),
+                "a file that is not valid UTF-8 must fall back, not abort the import");
+    }
+
+    @Test
+    void readsUtf8WithAndWithoutAByteOrderMark(@TempDir Path dir) throws IOException {
+        Path plain = dir.resolve("plain.dat");
+        Files.writeString(plain, "CODE;NAME\n1001;Ren\u00e9e Fran\u00e7ois\n", StandardCharsets.UTF_8);
+        assertEquals("Ren\u00e9e Fran\u00e7ois", DatFile.read(plain).get(0).get("NAME"));
+
+        Path withBom = dir.resolve("bom.dat");
+        Files.writeString(withBom, "\ufeffCODE;NAME\n1001;Ren\u00e9e Fran\u00e7ois\n", StandardCharsets.UTF_8);
+        List<DatFile.Row> rows = DatFile.read(withBom);
+        assertEquals("1001", rows.get(0).get("CODE"), "the byte-order mark must not end up in the first field name");
+        assertEquals("Ren\u00e9e Fran\u00e7ois", rows.get(0).get("NAME"));
+    }
+
+    @Test
+    void anExplicitCharsetOverridesTheGuess(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("latin1.dat");
+        Files.write(file, "CODE;NAME\n1001;Ren\u00e9e\n".getBytes(StandardCharsets.ISO_8859_1));
+
+        assertEquals("Ren\u00e9e", DatFile.read(file, StandardCharsets.ISO_8859_1).get(0).get("NAME"));
     }
 
     @Test

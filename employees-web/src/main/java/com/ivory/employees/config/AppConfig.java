@@ -1,5 +1,6 @@
 package com.ivory.employees.config;
 
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -18,6 +19,7 @@ public final class AppConfig {
     private final String jdbcUser;
     private final String jdbcPassword;
     private final Path dataDir;
+    private final Charset dataCharset;
     private final boolean reloadData;
     private final Duration cacheTtl;
     private final Duration sessionTtl;
@@ -30,6 +32,7 @@ public final class AppConfig {
         this.jdbcUser = get("employees.db.user", "sa");
         this.jdbcPassword = get("employees.db.password", "");
         this.dataDir = Path.of(get("employees.data.dir", "./data"));
+        this.dataCharset = parseCharset(get("employees.data.charset", ""));
         this.reloadData = Boolean.parseBoolean(get("employees.data.reload", "false"));
         this.cacheTtl = Duration.ofMinutes(getLong("employees.cache.ttl.minutes", 120));
         this.sessionTtl = Duration.ofMinutes(getLong("employees.session.ttl.minutes", 60));
@@ -56,6 +59,14 @@ public final class AppConfig {
 
     public Path dataDir() {
         return dataDir;
+    }
+
+    /**
+     * Encoding of the .dat files, or {@code null} to work it out per file (byte-order mark, then
+     * UTF-8, then a legacy code page).
+     */
+    public Charset dataCharset() {
+        return dataCharset;
     }
 
     /** When true the .dat files are re-imported even if the tables already hold rows. */
@@ -89,12 +100,24 @@ public final class AppConfig {
     public String toString() {
         return "AppConfig[jdbcUrl=" + jdbcUrl
                 + ", dataDir=" + dataDir.toAbsolutePath().normalize()
+                + ", dataCharset=" + (dataCharset == null ? "auto" : dataCharset.name())
                 + ", reloadData=" + reloadData
                 + ", cacheTtl=" + cacheTtl
                 + ", sessionTtl=" + sessionTtl
                 + ", seedUsers=" + seedUsers.keySet()
                 + ", prettyJson=" + prettyJson
                 + ", port=" + port + ']';
+    }
+
+    private static Charset parseCharset(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Charset.forName(raw.trim());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("employees.data.charset is not a known encoding: " + raw, e);
+        }
     }
 
     private static Map<String, String> parseUsers(String raw) {
