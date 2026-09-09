@@ -1,6 +1,7 @@
 package com.ivory.employees.db;
 
 import com.ivory.employees.config.AppConfig;
+import com.ivory.employees.util.HebrewText;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -16,7 +17,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -71,7 +74,9 @@ public final class DataImporter {
                 deleteAll();
             }
             int employees = importEmployees(employeesFile);
-            int salaries = Files.isReadable(salariesFile) ? importSalaries(salariesFile) : 0;
+            int salaries = Files.isReadable(salariesFile)
+                    ? importSalaries(salariesFile, employeeCodes())
+                    : 0;
             if (!Files.isReadable(salariesFile)) {
                 LOG.warning(() -> "No " + SALARIES_FILE + " found in " + dataDir + " - salaries left empty");
             }
@@ -81,8 +86,12 @@ public final class DataImporter {
         }
     }
 
+    /** Index of EMPLOYEES.NAME, the one column whose value may itself contain the delimiter. */
+    private static final int EMPLOYEE_NAME_COLUMN = 1;
+
     private int importEmployees(Path file) throws IOException, SQLException {
-        DatFile.Table table = DatFile.read(file, config.dataCharset(), config.dataDelimiter());
+        DatFile.Table table = DatFile.read(file, config.dataCharset(), config.dataDelimiter(),
+                EMPLOYEE_NAME_COLUMN);
         describe(file, table);
         requireFields(file, table, List.of(new String[]{"CODE"}, new String[]{"NAME"}));
         Skipped skipped = new Skipped(file);
@@ -97,12 +106,13 @@ public final class DataImporter {
             for (DatFile.Row row : table.rows()) {
                 try {
                     statement.setLong(1, Long.parseLong(row.require("CODE")));
-                    statement.setString(2, row.require("NAME"));
+                    String name = row.get("NAME");
+                    statement.setString(2, text(name == null ? "" : name));
                     statement.setInt(3, parseFlag(row.get("IS_ACTIVE")));
-                    statement.setString(4, row.get("ADDRESS_STREET", "ADRESS_STREET"));
-                    statement.setString(5, row.get("ADDRESS_NUMBER", "ADRESS_NUMBER"));
-                    statement.setString(6, row.get("ADDRESS_CITY", "ADRESS_CITY"));
-                    statement.setString(7, row.get("ADDRESS_COUNTRY", "ADRESS_COUNTRY"));
+                    statement.setString(4, text(row.get("ADDRESS_STREET", "ADRESS_STREET")));
+                    statement.setString(5, text(row.get("ADDRESS_NUMBER", "ADRESS_NUMBER")));
+                    statement.setString(6, text(row.get("ADDRESS_CITY", "ADRESS_CITY")));
+                    statement.setString(7, text(row.get("ADDRESS_COUNTRY", "ADRESS_COUNTRY")));
                     statement.addBatch();
                     batched++;
                 } catch (RuntimeException e) {
@@ -115,7 +125,7 @@ public final class DataImporter {
         }
     }
 
-    private int importSalaries(Path file) throws IOException, SQLException {
+    private int importSalaries(Path file, Set<Long> knownEmployees) throws IOException, SQLException {
         DatFile.Table table = DatFile.read(file, config.dataCharset(), config.dataDelimiter());
         describe(file, table);
         requireFields(file, table, List.of(
@@ -138,7 +148,13 @@ public final class DataImporter {
                     String rawTotal = row.get("TOTAL");
                     BigDecimal total = rawTotal == null ? gross.subtract(tax) : parseAmount(rawTotal);
 
-                    statement.setLong(1, Long.parseLong(row.require("EMPLOYEE_CODE", "EMPLYEE_CODE", "CODE")));
+                    long employee = Long.parseLong(row.require("EMPLOYEE_CODE", "EMPLYEE_CODE", "CODE"));
+                    if (!knownEmployees.contains(employee)) {
+                        // A salary for an employee the other file does not list. Keeping the row
+                        // would break the foreign key and abort the whole import.
+                        throw new IllegalArgumentException("no employee with code " + employee);
+                    }
+                    statement.setLong(1, employee);
                     statement.setDate(2, Date.valueOf(parseMonth(row.require("MONTH"))));
                     statement.setBigDecimal(3, gross);
                     statement.setBigDecimal(4, tax);
@@ -152,6 +168,27 @@ public final class DataImporter {
             statement.executeBatch();
             skipped.summarise();
             return batched;
+        }
+    }
+
+    /**
+     * Applies the Hebrew direction conversion when the files are visual-order; otherwise stores the
+     * value exactly as the file has it.
+     */
+    private String text(String value) {
+        return config.hebrewIsVisual() ? HebrewText.toLogical(value) : value;
+    }
+
+    /** The employee codes now in the database, used to reject salaries that reference no employee. */
+    private Set<Long> employeeCodes() throws SQLException {
+        try (Connection connection = database.connection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT CODE FROM EMPLOYEES")) {
+            Set<Long> codes = new HashSet<>();
+            while (resultSet.next()) {
+                codes.add(resultSet.getLong(1));
+            }
+            return codes;
         }
     }
 
@@ -198,14 +235,14 @@ public final class DataImporter {
                 LOG.warning(() -> "Skipping " + file.getFileName() + " line " + lineNumber + ": "
                         + failure.getMessage());
             } else if (count == LOGGED_IN_FULL + 1) {
-                LOG.warning(() -> "Further unreadable records in " + file.getFileName()
+                LOG.warning(() -> "Further skipped records in " + file.getFileName()
                         + " are counted but not logged individually");
             }
         }
 
         void summarise() {
             if (count > 0) {
-                LOG.warning(() -> "Skipped " + count + " unreadable record(s) in " + file.getFileName());
+                LOG.warning(() -> "Skipped " + count + " record(s) in " + file.getFileName());
             }
         }
     }
