@@ -21,6 +21,7 @@ public final class AppConfig {
     private final Path dataDir;
     private final Charset dataCharset;
     private final Character dataDelimiter;
+    private final boolean hebrewIsVisual;
     private final boolean reloadData;
     private final Duration cacheTtl;
     private final Duration sessionTtl;
@@ -35,6 +36,7 @@ public final class AppConfig {
         this.dataDir = Path.of(get("employees.data.dir", "./data"));
         this.dataCharset = parseCharset(get("employees.data.charset", ""));
         this.dataDelimiter = parseDelimiter(get("employees.data.delimiter", ""));
+        this.hebrewIsVisual = "visual".equalsIgnoreCase(get("employees.data.hebrew", "as-is").trim());
         this.reloadData = Boolean.parseBoolean(get("employees.data.reload", "false"));
         this.cacheTtl = Duration.ofMinutes(getLong("employees.cache.ttl.minutes", 120));
         this.sessionTtl = Duration.ofMinutes(getLong("employees.session.ttl.minutes", 60));
@@ -78,6 +80,14 @@ public final class AppConfig {
         return dataDelimiter;
     }
 
+    /**
+     * True when the .dat files hold Hebrew in visual (reversed) order and it should be converted to
+     * logical order on import. Off by default: the data is then stored exactly as the file has it.
+     */
+    public boolean hebrewIsVisual() {
+        return hebrewIsVisual;
+    }
+
     /** When true the .dat files are re-imported even if the tables already hold rows. */
     public boolean reloadData() {
         return reloadData;
@@ -111,6 +121,7 @@ public final class AppConfig {
                 + ", dataDir=" + dataDir.toAbsolutePath().normalize()
                 + ", dataCharset=" + (dataCharset == null ? "auto" : dataCharset.name())
                 + ", dataDelimiter=" + (dataDelimiter == null ? "auto" : "'" + dataDelimiter + "'")
+                + ", hebrew=" + (hebrewIsVisual ? "visual->logical" : "as-is")
                 + ", reloadData=" + reloadData
                 + ", cacheTtl=" + cacheTtl
                 + ", sessionTtl=" + sessionTtl
