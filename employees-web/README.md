@@ -166,6 +166,10 @@ The reader ([`DatFile`](src/main/java/com/ivory/employees/db/DatFile.java)) is d
 it trims values, skips blank lines, accepts short records, and accepts both the correct field names
 and the spellings printed in the specification (`ADRESS_CITY`, `EMPLYEE_CODE`).
 
+**The delimiter** is worked out per file too: whichever of `;` `,` tab or `|` the header record uses
+most. The specification describes these files as semicolon-delimited, but real exports are often
+comma-delimited. Override with `-Demployees.data.delimiter=,` (or `tab`).
+
 **Encoding** is worked out per file rather than assumed: a byte-order mark decides when there is
 one (UTF-8, UTF-16LE, UTF-16BE), otherwise the file is read as UTF-8, and only if that fails is it
 re-read as `windows-1255` - the Hebrew ANSI code page - with a warning naming the file. Set
@@ -201,6 +205,7 @@ upper-cased with `.` replaced by `_` (`EMPLOYEES_CACHE_TTL_MINUTES`), then from 
 | `employees.db.user` / `.password`| `sa` / *(empty)*                                 | Credentials |
 | `employees.data.dir`             | `./data`                                         | Where the `.dat` files live |
 | `employees.data.charset`         | *(auto)*                                         | Encoding of the `.dat` files; empty means detect |
+| `employees.data.delimiter`       | *(auto)*                                         | Field separator of the `.dat` files; empty means detect |
 | `employees.data.reload`          | `false`                                          | Re-import the `.dat` files even when the tables hold rows |
 | `employees.cache.ttl.minutes`    | `120`                                            | Cache retention time |
 | `employees.session.ttl.minutes`  | `60`                                             | Session lifetime |

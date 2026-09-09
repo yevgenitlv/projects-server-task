@@ -34,7 +34,11 @@ public final class DatFile {
 
     private static final Logger LOG = Logger.getLogger(DatFile.class.getName());
 
-    public static final char DELIMITER = ';';
+    /** Used when a file's delimiter cannot be worked out from its header. */
+    public static final char DEFAULT_DELIMITER = ';';
+
+    /** Delimiters {@link #detectDelimiter} chooses between, in preference order on a tie. */
+    private static final char[] CANDIDATE_DELIMITERS = {';', ',', '\t', '|'};
 
     /**
      * Used when a file is neither byte-order marked nor valid UTF-8. The specification comes from an
@@ -47,7 +51,7 @@ public final class DatFile {
     }
 
     /** A parsed file: the field names taken from its first record, plus the data records. */
-    public record Table(List<String> header, List<Row> rows) {
+    public record Table(List<String> header, List<Row> rows, char delimiter) {
 
         /** True when the header carries any of these field names. */
         public boolean has(String... names) {
@@ -85,9 +89,14 @@ public final class DatFile {
         }
     }
 
-    /** Reads a file, working out its encoding. Equivalent to {@code read(file, null)}. */
+    /** Reads a file, working out its encoding and delimiter. */
     public static Table read(Path file) throws IOException {
-        return read(file, null);
+        return read(file, null, null);
+    }
+
+    /** Reads a file with a known encoding, working out its delimiter. */
+    public static Table read(Path file, Charset charset) throws IOException {
+        return read(file, charset, null);
     }
 
     /**
@@ -97,22 +106,23 @@ public final class DatFile {
      *                when there is one, otherwise the file is decoded as UTF-8, and only if that
      *                fails is it re-read as {@value #FALLBACK_CHARSET} (with a warning naming the
      *                file, so a wrong guess is visible rather than silent).
+     * @param delimiter the field separator, or {@code null} to work it out from the header record
      */
-    public static Table read(Path file, Charset charset) throws IOException {
+    public static Table read(Path file, Charset charset, Character delimiter) throws IOException {
         Charset declared = charset != null ? charset : byteOrderMarkCharset(file);
         if (declared != null) {
             try (Reader reader = open(file, declared, CodingErrorAction.REPLACE)) {
-                return read(reader);
+                return read(reader, delimiter);
             }
         }
         try (Reader reader = open(file, StandardCharsets.UTF_8, CodingErrorAction.REPORT)) {
-            return read(reader);
+            return read(reader, delimiter);
         } catch (CharacterCodingException e) {
             Charset fallback = fallbackCharset();
             LOG.warning(() -> file.getFileName() + " is not valid UTF-8; reading it as " + fallback
                     + ". If the text comes out wrong, set -Demployees.data.charset=<encoding>.");
             try (Reader reader = open(file, fallback, CodingErrorAction.REPLACE)) {
-                return read(reader);
+                return read(reader, delimiter);
             }
         }
     }
@@ -151,7 +161,17 @@ public final class DatFile {
     }
 
     public static Table read(Reader source) throws IOException {
+        return read(source, null);
+    }
+
+    /**
+     * Reads records from an open reader.
+     *
+     * @param delimiter the field separator, or {@code null} to work it out from the header record
+     */
+    public static Table read(Reader source, Character delimiter) throws IOException {
         List<Row> rows = new ArrayList<>();
+        char separator = delimiter == null ? DEFAULT_DELIMITER : delimiter;
         try (BufferedReader reader = new BufferedReader(source)) {
             List<String> header = null;
             String line;
@@ -164,11 +184,16 @@ public final class DatFile {
                 if (line.isBlank()) {
                     continue;
                 }
-                List<String> fields = split(line);
                 if (header == null) {
-                    header = fields.stream().map(field -> field.trim().toUpperCase()).toList();
+                    if (delimiter == null) {
+                        separator = detectDelimiter(line);
+                    }
+                    header = split(line, separator).stream()
+                            .map(field -> field.trim().toUpperCase())
+                            .toList();
                     continue;
                 }
+                List<String> fields = split(line, separator);
                 Map<String, String> values = new LinkedHashMap<>();
                 for (int i = 0; i < header.size(); i++) {
                     values.put(header.get(i), i < fields.size() ? fields.get(i).trim() : "");
@@ -178,15 +203,38 @@ public final class DatFile {
             if (header == null) {
                 throw new IOException("the file holds no header record");
             }
-            return new Table(header, rows);
+            return new Table(header, rows, separator);
         }
     }
 
-    private static List<String> split(String line) {
+    /**
+     * Picks the delimiter a header record uses: whichever candidate appears most often in it. The
+     * specification describes these files as semicolon-delimited, but real exports use a comma just
+     * as often, so the separator is worked out rather than assumed.
+     */
+    static char detectDelimiter(String headerLine) {
+        char chosen = DEFAULT_DELIMITER;
+        int best = 0;
+        for (char candidate : CANDIDATE_DELIMITERS) {
+            int count = 0;
+            for (int i = 0; i < headerLine.length(); i++) {
+                if (headerLine.charAt(i) == candidate) {
+                    count++;
+                }
+            }
+            if (count > best) {
+                best = count;
+                chosen = candidate;
+            }
+        }
+        return chosen;
+    }
+
+    private static List<String> split(String line, char delimiter) {
         List<String> fields = new ArrayList<>();
         int start = 0;
         for (int i = 0; i < line.length(); i++) {
-            if (line.charAt(i) == DELIMITER) {
+            if (line.charAt(i) == delimiter) {
                 fields.add(line.substring(start, i));
                 start = i + 1;
             }

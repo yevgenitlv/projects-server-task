@@ -97,6 +97,57 @@ class DatFileTest {
         assertEquals("Ren\u00e9e", DatFile.read(file, StandardCharsets.ISO_8859_1).rows().get(0).get("NAME"));
     }
 
+    /** The supplied files are comma-delimited, though the specification describes semicolons. */
+    @Test
+    void detectsACommaDelimitedFile() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("""
+                CODE,NAME,IS_ACTIVE,ADDRESS_STREET,ADDRESS_NUMBER,ADRESS_CITY,ADDRESS_COUNTRY
+                87039,Avi Cohen                     ,1,Ha-Nassi  19          ,1,Haifa          ,900
+                """));
+
+        assertEquals(',', table.delimiter());
+        assertEquals(7, table.header().size());
+        DatFile.Row row = table.rows().get(0);
+        assertEquals("87039", row.get("CODE"));
+        assertEquals("Avi Cohen", row.get("NAME"), "padding is trimmed off");
+        assertEquals("Haifa", row.get("ADDRESS_CITY", "ADRESS_CITY"), "the spec spells this ADRESS_CITY");
+        assertEquals("900", row.get("ADDRESS_COUNTRY"));
+    }
+
+    @Test
+    void readsTheSuppliedSalaryLayout() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("""
+                EMPLYEE_CODE,MONTH,GROSS,TAX,TOTAL
+                845707,01/01/2022,825.01,123.75,701.26
+                """));
+
+        DatFile.Row row = table.rows().get(0);
+        assertEquals("845707", row.get("EMPLOYEE_CODE", "EMPLYEE_CODE"), "the spec drops the O in EMPLOYEE");
+        assertEquals(LocalDate.of(2022, 1, 1), DataImporter.parseMonth(row.get("MONTH")));
+        assertEquals(new BigDecimal("825.01"), DataImporter.parseAmount(row.get("GROSS")));
+        assertEquals(new BigDecimal("701.26"), DataImporter.parseAmount(row.get("TOTAL")));
+    }
+
+    @Test
+    void keepsUsingSemicolonsWhenThatIsWhatTheFileUses() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("""
+                CODE;NAME;IS_ACTIVE
+                1001;Cohen, Avi;1
+                """));
+
+        assertEquals(';', table.delimiter());
+        assertEquals("Cohen, Avi", table.rows().get(0).get("NAME"),
+                "a comma inside a value must not split the record");
+    }
+
+    @Test
+    void anExplicitDelimiterOverridesTheGuess() throws IOException {
+        DatFile.Table table = DatFile.read(new StringReader("CODE|NAME\n1001|Avi\n"), '|');
+
+        assertEquals('|', table.delimiter());
+        assertEquals("Avi", table.rows().get(0).get("NAME"));
+    }
+
     @Test
     void failsWhenTheFileHasNoHeader() {
         assertThrows(IOException.class, () -> DatFile.read(new StringReader("")));

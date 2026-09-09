@@ -82,7 +82,7 @@ public final class DataImporter {
     }
 
     private int importEmployees(Path file) throws IOException, SQLException {
-        DatFile.Table table = DatFile.read(file, config.dataCharset());
+        DatFile.Table table = DatFile.read(file, config.dataCharset(), config.dataDelimiter());
         describe(file, table);
         requireFields(file, table, List.of(new String[]{"CODE"}, new String[]{"NAME"}));
         Skipped skipped = new Skipped(file);
@@ -116,7 +116,7 @@ public final class DataImporter {
     }
 
     private int importSalaries(Path file) throws IOException, SQLException {
-        DatFile.Table table = DatFile.read(file, config.dataCharset());
+        DatFile.Table table = DatFile.read(file, config.dataCharset(), config.dataDelimiter());
         describe(file, table);
         requireFields(file, table, List.of(
                 new String[]{"EMPLOYEE_CODE", "EMPLYEE_CODE", "CODE"},
@@ -157,8 +157,9 @@ public final class DataImporter {
 
     /** Logs the field names a file declares, so a header mismatch is visible at a glance. */
     private static void describe(Path file, DatFile.Table table) {
-        LOG.info(() -> file.getFileName() + ": " + table.rows().size() + " record(s), fields "
-                + table.header());
+        LOG.info(() -> file.getFileName() + ": " + table.rows().size() + " record(s), delimiter '"
+                + (table.delimiter() == '\t' ? "\\t" : String.valueOf(table.delimiter()))
+                + "', fields " + table.header());
     }
 
     /**

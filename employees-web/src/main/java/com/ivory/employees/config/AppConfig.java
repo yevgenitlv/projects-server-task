@@ -20,6 +20,7 @@ public final class AppConfig {
     private final String jdbcPassword;
     private final Path dataDir;
     private final Charset dataCharset;
+    private final Character dataDelimiter;
     private final boolean reloadData;
     private final Duration cacheTtl;
     private final Duration sessionTtl;
@@ -33,6 +34,7 @@ public final class AppConfig {
         this.jdbcPassword = get("employees.db.password", "");
         this.dataDir = Path.of(get("employees.data.dir", "./data"));
         this.dataCharset = parseCharset(get("employees.data.charset", ""));
+        this.dataDelimiter = parseDelimiter(get("employees.data.delimiter", ""));
         this.reloadData = Boolean.parseBoolean(get("employees.data.reload", "false"));
         this.cacheTtl = Duration.ofMinutes(getLong("employees.cache.ttl.minutes", 120));
         this.sessionTtl = Duration.ofMinutes(getLong("employees.session.ttl.minutes", 60));
@@ -69,6 +71,13 @@ public final class AppConfig {
         return dataCharset;
     }
 
+    /**
+     * Field separator of the .dat files, or {@code null} to work it out from each file's header.
+     */
+    public Character dataDelimiter() {
+        return dataDelimiter;
+    }
+
     /** When true the .dat files are re-imported even if the tables already hold rows. */
     public boolean reloadData() {
         return reloadData;
@@ -101,6 +110,7 @@ public final class AppConfig {
         return "AppConfig[jdbcUrl=" + jdbcUrl
                 + ", dataDir=" + dataDir.toAbsolutePath().normalize()
                 + ", dataCharset=" + (dataCharset == null ? "auto" : dataCharset.name())
+                + ", dataDelimiter=" + (dataDelimiter == null ? "auto" : "'" + dataDelimiter + "'")
                 + ", reloadData=" + reloadData
                 + ", cacheTtl=" + cacheTtl
                 + ", sessionTtl=" + sessionTtl
@@ -118,6 +128,21 @@ public final class AppConfig {
         } catch (RuntimeException e) {
             throw new IllegalArgumentException("employees.data.charset is not a known encoding: " + raw, e);
         }
+    }
+
+    private static Character parseDelimiter(String raw) {
+        if (raw == null || raw.isBlank() || "auto".equalsIgnoreCase(raw.trim())) {
+            return null;
+        }
+        String value = raw.trim();
+        if ("tab".equalsIgnoreCase(value) || "\\t".equals(value)) {
+            return '\t';
+        }
+        if (value.length() != 1) {
+            throw new IllegalArgumentException(
+                    "employees.data.delimiter must be a single character, 'tab' or 'auto': " + raw);
+        }
+        return value.charAt(0);
     }
 
     private static Map<String, String> parseUsers(String raw) {
