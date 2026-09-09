@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.ivory</groupId>
+  <artifactId>employees-web</artifactId>
+  <version>1.0.0</version>
+  <packaging>war</packaging>
+  <name>employees-web</name>
+  <description>Plain Java (Servlet) web server exposing employee / salary services. No Spring.</description>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <servlet-api.version>6.0.0</servlet-api.version>
+    <tomcat.version>10.1.34</tomcat.version>
+    <h2.version>2.2.224</h2.version>
+    <junit.version>5.10.2</junit.version>
+  </properties>
+
+  <dependencies>
+    <!-- Servlet API: supplied by the container (Tomcat 10.1+ / any Jakarta EE 10 web container). -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>${servlet-api.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Embedded Tomcat: only used by com.ivory.employees.Launcher to run the app standalone.
+         'provided' keeps it out of the WAR, but still on the compile/test classpath, which is
+         what `mvn exec:java` uses (exec.classpathScope=test, configured below). -->
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-core</artifactId>
+      <version>${tomcat.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- The database. Embedded H2, plain JDBC - no ORM, no connection-pool library
+         (H2 ships its own JdbcConnectionPool). -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>${h2.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>employees</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>3.4.0</version>
+        <configuration>
+          <!-- Servlets/filters are registered programmatically (see WebApp), no web.xml needed. -->
+          <failOnMissingWebXml>false</failOnMissingWebXml>
+        </configuration>
+      </plugin>
+
+      <!-- `mvn compile exec:java` starts the server on http://localhost:8080 -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.1.1</version>
+        <configuration>
+          <mainClass>com.ivory.employees.Launcher</mainClass>
+          <classpathScope>test</classpathScope>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

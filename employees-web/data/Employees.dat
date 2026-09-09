@@ -1,0 +1,13 @@
+CODE;NAME;IS_ACTIVE;ADDRESS_STREET;ADDRESS_NUMBER;ADDRESS_CITY;ADDRESS_COUNTRY
+1001;Avi Cohen;1;Herzl;12;Tel Aviv;Israel
+1002;Maya Levi;1;Ben Yehuda;45B;Tel Aviv;Israel
+1003;Daniel Mizrahi;1;Ha-Nassi;7;Haifa;Israel
+1004;Noa Friedman;1;Jaffa;103;Jerusalem;Israel
+1005;Yossi Barak;0;Ha-Palmach;3;Beer Sheva;Israel
+1006;Tamar Shalev;1;Rothschild;88;Tel Aviv;Israel
+1007;Eitan Golan;1;Weizmann;21;Rehovot;Israel
+1008;Shira Peretz;0;Ha-Zohar;14A;Netanya;Israel
+1009;Omer Katz;1;Sokolov;56;Ramat Gan;Israel
+1010;Lior Avrahami;1;Ha-Gefen;9;Modiin;Israel
+1011;Roni Dahan;0;Bialik;31;Ramat Gan;Israel
+1012;Hadas Ben-Ami;1;Ha-Yarkon;150;Tel Aviv;Israel
