@@ -34,7 +34,7 @@ Running `Launcher` straight from an IDE works too - set the working directory to
 `./data` resolves.
 
 ```bash
-mvn test                         # 23 unit / integration tests
+mvn test                         # 30 unit / integration tests
 ```
 
 ## A first call
