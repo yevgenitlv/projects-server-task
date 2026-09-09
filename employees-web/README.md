@@ -4,7 +4,9 @@ A Java web server exposing employee and salary services over HTTP/JSON.
 
 Plain Jakarta Servlet application - **no Spring, no Spring Boot, no ORM, no JSON library**. The
 whole dependency list is three artifacts: the Servlet API (supplied by the container), embedded
-Tomcat (only to run the app standalone) and the H2 database driver.
+Tomcat (only to run the app standalone) and the H2 database driver. The WAR ships just one of them:
+`maven-war-plugin` excludes the embedded container, so a WAR deployed to a real Tomcat never carries
+a second copy of Catalina.
 
 ---
 
@@ -27,6 +29,9 @@ cp target/employees.war $CATALINA_HOME/webapps/
 Both paths run the same wiring: [`WebApp`](src/main/java/com/ivory/employees/web/WebApp.java)
 registers the servlets and filters programmatically, and is picked up either through
 `@WebListener` (WAR) or by [`Launcher`](src/main/java/com/ivory/employees/Launcher.java) (embedded).
+
+Running `Launcher` straight from an IDE works too - set the working directory to this module so
+`./data` resolves.
 
 ```bash
 mvn test                         # 23 unit / integration tests
